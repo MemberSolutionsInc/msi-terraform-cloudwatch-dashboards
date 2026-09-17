@@ -71,7 +71,7 @@ locals {
         [{ stat = m.stat, label = m.label }]
       )
     ]
-    if m.expression == null && m.search_expression == null
+    if length(m.metrics_list) == 0 && m.expression == null && m.search_expression == null
   }
 
   tier2_math_metric_rows = {
@@ -85,26 +85,42 @@ locals {
       ],
       [[{ expression = m.expression, label = m.label, id = "expr${idx}" }]]
     )
-    if m.expression != null
+    if length(m.metrics_list) == 0 && m.expression != null
   }
 
   # SEARCH()-based widget: one metric across many resources in a single
-  # graph (one line per matching resource), without listing each resource
-  # by hand - e.g. "CPU - all instances" for a whole fleet. Mutually
-  # exclusive with expression (expression wins if both are somehow set).
+  # graph, without listing each resource by hand. Only safe when the
+  # account has no OAM sink - see the search_expression description.
+  # Mutually exclusive with metrics_list/expression (checked first).
   tier2_search_metric_rows = {
     for idx, m in var.tier2_metrics : idx => [[{
       expression = m.search_expression
       label      = m.label
       id         = "search${idx}"
     }]]
-    if m.expression == null && m.search_expression != null
+    if length(m.metrics_list) == 0 && m.expression == null && m.search_expression != null
+  }
+
+  # Multiple known resources' metrics as separate lines on one widget, no
+  # math or SEARCH() involved - the OAM-safe way to combine a fleet onto one
+  # graph. Takes precedence over expression/search_expression if all three
+  # are somehow set.
+  tier2_list_metric_rows = {
+    for idx, m in var.tier2_metrics : idx => [
+      for lm in m.metrics_list : concat(
+        [lm.namespace, lm.metric_name],
+        flatten([for k, v in lm.dimensions : [k, v]]),
+        [{ stat = lm.stat, label = lm.label }]
+      )
+    ]
+    if length(m.metrics_list) > 0
   }
 
   tier2_metric_rows = merge(
     local.tier2_plain_metric_rows,
     local.tier2_math_metric_rows,
     local.tier2_search_metric_rows,
+    local.tier2_list_metric_rows,
   )
 
   tier2_metric_widgets = [
