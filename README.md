@@ -44,8 +44,10 @@ modules such as `msi-terraform-cloudwatch-composite-alarms`.
     stay identifiable once combined).
 
 Metrics in `tier1_applications` and `tier3_combined_resources` accept
-`warn_threshold` / `crit_threshold`, rendered as horizontal reference lines
-on the widget.
+`warn_threshold` / `crit_threshold` (rendered as horizontal reference lines),
+and - like `tier2_metrics` - can be a metric-math widget instead of a plain
+metric by setting `expression` + `using_metrics` (e.g. combining a "bytes in"
+and "bytes out" metric into one "Network Errors" widget).
 
 Each tier/mode is only created when its inputs are populated, so a caller
 can adopt them incrementally: leave `tier1_composite_alarms` and
@@ -219,7 +221,7 @@ Tier 3 combined mode (one account-wide dashboard instead of one per resource):
 |---|---|---|---|
 | `dashboard_name_prefix` | `string` | n/a | Prefix used to name the tier1/tier2/tier3 dashboards. |
 | `tier1_composite_alarms` | `list(object({ name, arn, label }))` | `[]` | Composite alarms rendered as Tier 1 Alarm Status widgets on one combined dashboard. Empty skips this mode. |
-| `tier1_applications` | `list(object({ name, crit_alarm, warn_alarm, metrics }))` | `[]` | One entry per application/service, each getting its own Tier 1 dashboard with a severity-based status indicator plus that application's metric widgets. Independent of `tier1_composite_alarms`. Empty skips this mode. |
+| `tier1_applications` | `list(object({ name, crit_alarm, warn_alarm, metrics }))` | `[]` | One entry per application/service, each getting its own Tier 1 dashboard with a severity-based status indicator plus that application's metric (or metric-math) widgets. Independent of `tier1_composite_alarms`. Empty skips this mode. |
 | `tier2_service_values` | `list(string)` | `[]` | Dropdown values for the Tier 2 `$service` dashboard variable. |
 | `tier2_default_service` | `string` | `""` | Default `$service` value; falls back to the first `tier2_service_values` entry. |
 | `tier2_env_values` | `list(string)` | `[]` | Dropdown values for the Tier 2 `$env` dashboard variable. |
@@ -227,7 +229,7 @@ Tier 3 combined mode (one account-wide dashboard instead of one per resource):
 | `tier2_metrics` | `list(object({ label, namespace, metric_name, dimensions, stat, expression, search_expression, using_metrics }))` | `[]` | Metric / metric-math / SEARCH() widgets on the Tier 2 dashboard. |
 | `tier2_alarms` | `list(object({ name, arn, label }))` | `[]` | Alarms rendered in the Tier 2 ALARM-state widget grid. |
 | `tier3_resources` | `list(object({ resource_name, metrics, log_group_names, has_xray }))` | `[]` | One entry per Tier 3 per-resource dashboard. Empty skips this mode. |
-| `tier3_combined_resources` | `list(object({ resource_name, metrics }))` | `[]` | Resources whose metrics are combined onto one account-wide Tier 3 dashboard instead of one dashboard each. Independent of `tier3_resources`. Empty skips this mode. |
+| `tier3_combined_resources` | `list(object({ resource_name, metrics }))` | `[]` | Resources whose metric (or metric-math) widgets are combined onto one account-wide Tier 3 dashboard instead of one dashboard each. Independent of `tier3_resources`. Empty skips this mode. |
 | `tier3_log_queries` | `map(string)` | `{}` | `resource_name => Logs Insights query string` for each Tier 3 dashboard. |
 | `tier3_default_log_query` | `string` | `"fields @timestamp, @message | sort @timestamp desc | limit 100"` | Fallback query for a Tier 3 resource missing from `tier3_log_queries`. |
 | `saved_log_insights_queries` | `list(object({ name, query_string, log_group_names }))` | `[]` | Saved `aws_cloudwatch_query_definition` entries. |

@@ -266,6 +266,44 @@ locals {
   tier1_app_metric_width    = 12
   tier1_app_metric_height   = 6
 
+  # Same split-then-merge pattern as tier2_metric_rows above (see that
+  # comment for why a ternary won't work here): each application's metrics
+  # can mix plain metrics and metric-math entries, so the "metrics" array
+  # per (app, idx) is built as two separate maps and merged.
+  tier1_app_plain_metric_rows = {
+    for name, app in local.tier1_applications_by_name : name => {
+      for idx, m in app.metrics : idx => [
+        concat(
+          [m.namespace, m.metric_name],
+          flatten([for k, v in m.dimensions : [k, v]]),
+          [{ stat = m.stat, label = m.label }]
+        )
+      ]
+      if m.expression == null
+    }
+  }
+
+  tier1_app_math_metric_rows = {
+    for name, app in local.tier1_applications_by_name : name => {
+      for idx, m in app.metrics : idx => concat(
+        [
+          for um in m.using_metrics : concat(
+            [um.namespace, um.metric_name],
+            flatten([for k, v in um.dimensions : [k, v]]),
+            [{ id = um.id, stat = um.stat, visible = false }]
+          )
+        ],
+        [[{ expression = m.expression, label = m.label, id = "expr${idx}" }]]
+      )
+      if m.expression != null
+    }
+  }
+
+  tier1_app_metric_rows = {
+    for name, app in local.tier1_applications_by_name :
+    name => merge(local.tier1_app_plain_metric_rows[name], local.tier1_app_math_metric_rows[name])
+  }
+
   tier1_app_metric_widgets = {
     for name, app in local.tier1_applications_by_name : name => [
       for idx, m in app.metrics : {
@@ -280,13 +318,7 @@ locals {
             view    = "timeSeries"
             stacked = false
             region  = "$${AWS::Region}"
-            metrics = [
-              concat(
-                [m.namespace, m.metric_name],
-                flatten([for k, v in m.dimensions : [k, v]]),
-                [{ stat = m.stat, label = m.label }]
-              )
-            ]
+            metrics = local.tier1_app_metric_rows[name][idx]
           },
           (m.warn_threshold != null || m.crit_threshold != null) ? {
             annotations = {
@@ -318,6 +350,38 @@ locals {
     ]
   ])
 
+  # Same split-then-merge pattern as tier1_app_metric_rows / tier2_metric_rows
+  # above, keyed by the flat index across every resource's metrics combined.
+  tier3_combined_plain_metric_rows = {
+    for idx, m in local.tier3_combined_flat : idx => [
+      concat(
+        [m.namespace, m.metric_name],
+        flatten([for k, v in m.dimensions : [k, v]]),
+        [{ stat = m.stat, label = m.label }]
+      )
+    ]
+    if m.expression == null
+  }
+
+  tier3_combined_math_metric_rows = {
+    for idx, m in local.tier3_combined_flat : idx => concat(
+      [
+        for um in m.using_metrics : concat(
+          [um.namespace, um.metric_name],
+          flatten([for k, v in um.dimensions : [k, v]]),
+          [{ id = um.id, stat = um.stat, visible = false }]
+        )
+      ],
+      [[{ expression = m.expression, label = m.label, id = "expr${idx}" }]]
+    )
+    if m.expression != null
+  }
+
+  tier3_combined_metric_rows = merge(
+    local.tier3_combined_plain_metric_rows,
+    local.tier3_combined_math_metric_rows,
+  )
+
   tier3_combined_widgets = [
     for idx, m in local.tier3_combined_flat : {
       type   = "metric"
@@ -331,13 +395,7 @@ locals {
           view    = "timeSeries"
           stacked = false
           region  = "$${AWS::Region}"
-          metrics = [
-            concat(
-              [m.namespace, m.metric_name],
-              flatten([for k, v in m.dimensions : [k, v]]),
-              [{ stat = m.stat, label = m.label }]
-            )
-          ]
+          metrics = local.tier3_combined_metric_rows[idx]
         },
         (m.warn_threshold != null || m.crit_threshold != null) ? {
           annotations = {

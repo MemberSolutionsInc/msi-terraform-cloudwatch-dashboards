@@ -49,13 +49,21 @@ variable "tier1_applications" {
       arn  = string
     }))
     metrics = optional(list(object({
-      namespace      = string
-      metric_name    = string
+      namespace      = optional(string)
+      metric_name    = optional(string)
       dimensions     = optional(map(string), {})
       stat           = optional(string, "Average")
       label          = string
       warn_threshold = optional(number)
       crit_threshold = optional(number)
+      expression     = optional(string)
+      using_metrics = optional(list(object({
+        id          = string
+        namespace   = string
+        metric_name = string
+        dimensions  = optional(map(string), {})
+        stat        = optional(string, "Average")
+      })), [])
     })), [])
   }))
   default = []
@@ -179,13 +187,21 @@ variable "tier3_combined_resources" {
   type = list(object({
     resource_name = string
     metrics = list(object({
-      namespace      = string
-      metric_name    = string
+      namespace      = optional(string)
+      metric_name    = optional(string)
       dimensions     = optional(map(string), {})
       stat           = optional(string, "Average")
       label          = string
       warn_threshold = optional(number)
       crit_threshold = optional(number)
+      expression     = optional(string)
+      using_metrics = optional(list(object({
+        id          = string
+        namespace   = string
+        metric_name = string
+        dimensions  = optional(map(string), {})
+        stat        = optional(string, "Average")
+      })), [])
     }))
   }))
   default = []
