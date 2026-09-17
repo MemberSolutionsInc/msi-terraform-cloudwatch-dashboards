@@ -28,6 +28,26 @@ output "tier3_dashboard_arns" {
   value       = { for k, v in aws_cloudwatch_dashboard.tier3 : k => v.dashboard_arn }
 }
 
+output "tier1_application_dashboard_names" {
+  description = "Map of application name => Tier 1 per-application dashboard name, for every entry in tier1_applications."
+  value       = { for k, v in aws_cloudwatch_dashboard.tier1_application : k => v.dashboard_name }
+}
+
+output "tier1_application_dashboard_arns" {
+  description = "Map of application name => Tier 1 per-application dashboard ARN, for every entry in tier1_applications."
+  value       = { for k, v in aws_cloudwatch_dashboard.tier1_application : k => v.dashboard_arn }
+}
+
+output "tier3_combined_dashboard_name" {
+  description = "Name of the Tier 3 combined (account-wide) dashboard, or null if tier3_combined_resources was empty."
+  value       = try(aws_cloudwatch_dashboard.tier3_combined[0].dashboard_name, null)
+}
+
+output "tier3_combined_dashboard_arn" {
+  description = "ARN of the Tier 3 combined (account-wide) dashboard, or null if tier3_combined_resources was empty."
+  value       = try(aws_cloudwatch_dashboard.tier3_combined[0].dashboard_arn, null)
+}
+
 output "query_definition_ids" {
   description = "Map of saved_log_insights_queries[*].name => CloudWatch Logs Insights query definition ID."
   value       = { for k, v in aws_cloudwatch_query_definition.saved : k => v.id }
