@@ -28,10 +28,17 @@ modules such as `msi-terraform-cloudwatch-composite-alarms`.
   throughput trends, plus a single Alarm Status widget grid filtered to
   alarms currently in `ALARM` state (`tier2_alarms`). Each `tier2_metrics`
   entry renders as a plain metric widget, a metric-math widget (set
-  `expression` + `using_metrics`), or a `SEARCH()`-based widget (set
-  `search_expression`) that combines one metric across many resources into a
-  single graph - e.g. one "CPU - all instances" widget covering an entire
-  fleet, one line per instance, without listing each instance by hand.
+  `expression` + `using_metrics`), a widget combining several known
+  resources' metrics as separate lines with no math (set `metrics_list`) -
+  e.g. one "CPU - all instances" widget covering a whole fleet - or a
+  `SEARCH()`-based widget (set `search_expression`) that does the same thing
+  without listing each resource by hand. **Prefer `metrics_list` over
+  `search_expression` in any account that's a CloudWatch Cross-Account
+  Observability (OAM) sink** - `SEARCH()` run from an OAM monitoring account
+  matches every linked source account's resources too, not just the
+  account the dashboard lives in, which silently turns a "9 instances"
+  widget into a "65 instances across the whole org" widget. `metrics_list`
+  only ever queries the exact dimensions given, so it has no such risk.
 - **Tier 3 - deep investigation**: two independent modes, usable together or
   separately.
   - `tier3_resources`: one dashboard **per resource**, each combining metric
@@ -186,10 +193,19 @@ Tier 1 per-application and Tier 2's combined-metric widget:
     },
   ]
 
-  # Tier 2 - one metric combined across an entire fleet via SEARCH()
+  # Tier 2 - one metric combined across a known fleet, no math or SEARCH()
+  # (safe in an OAM sink account - see the tier2_metrics description)
   tier2_metrics = [
     {
-      label             = "CPU - all instances"
+      label = "CPU - all instances"
+      metrics_list = [
+        { namespace = "AWS/EC2", metric_name = "CPUUtilization", dimensions = { InstanceId = "i-0123" }, label = "web-1" },
+        { namespace = "AWS/EC2", metric_name = "CPUUtilization", dimensions = { InstanceId = "i-0456" }, label = "web-2" },
+      ]
+    },
+    {
+      # Only safe in accounts with no OAM sink configured - see above.
+      label             = "CPU - all instances (SEARCH)"
       search_expression = "SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)"
     },
   ]
@@ -226,7 +242,7 @@ Tier 3 combined mode (one account-wide dashboard instead of one per resource):
 | `tier2_default_service` | `string` | `""` | Default `$service` value; falls back to the first `tier2_service_values` entry. |
 | `tier2_env_values` | `list(string)` | `[]` | Dropdown values for the Tier 2 `$env` dashboard variable. |
 | `tier2_default_env` | `string` | `""` | Default `$env` value; falls back to the first `tier2_env_values` entry. |
-| `tier2_metrics` | `list(object({ label, namespace, metric_name, dimensions, stat, expression, search_expression, using_metrics }))` | `[]` | Metric / metric-math / SEARCH() widgets on the Tier 2 dashboard. |
+| `tier2_metrics` | `list(object({ label, namespace, metric_name, dimensions, stat, expression, using_metrics, search_expression, metrics_list }))` | `[]` | Metric / metric-math / multi-metric / SEARCH() widgets on the Tier 2 dashboard. Prefer `metrics_list` over `search_expression` in an OAM sink account. |
 | `tier2_alarms` | `list(object({ name, arn, label }))` | `[]` | Alarms rendered in the Tier 2 ALARM-state widget grid. |
 | `tier3_resources` | `list(object({ resource_name, metrics, log_group_names, has_xray }))` | `[]` | One entry per Tier 3 per-resource dashboard. Empty skips this mode. |
 | `tier3_combined_resources` | `list(object({ resource_name, metrics }))` | `[]` | Resources whose metric (or metric-math) widgets are combined onto one account-wide Tier 3 dashboard instead of one dashboard each. Independent of `tier3_resources`. Empty skips this mode. |

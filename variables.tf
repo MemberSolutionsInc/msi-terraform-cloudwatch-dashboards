@@ -102,14 +102,21 @@ variable "tier2_metrics" {
     Metric (or metric-math) widgets rendered on the Tier 2 operational triage
     dashboard, e.g. error rate / latency / throughput trends.
 
-    Set `expression` (with `using_metrics` supplying the underlying series) to
-    render a metric-math widget, `search_expression` to render a single
-    widget covering many resources at once via CloudWatch's native SEARCH()
-    (e.g. combining one metric across every instance in a fleet into one
-    graph, one line per instance, without listing each instance by hand), or
-    leave both null and populate `namespace`/`metric_name`/`dimensions`/`stat`
-    to render a plain metric widget. Leave the whole list empty to omit
-    metric widgets from Tier 2.
+    Set `metrics_list` to render several known resources' metrics as
+    separate lines on one widget (e.g. "CPU - all instances" with 9 explicit
+    InstanceIds) without any math - the recommended way to combine a fleet
+    onto one graph. Set `expression` (with `using_metrics` supplying the
+    underlying series) to render a metric-math widget. Set
+    `search_expression` to render a single widget via CloudWatch's native
+    SEARCH() instead - **only safe in an account with no CloudWatch
+    Cross-Account Observability (OAM) sink configured**, since SEARCH() run
+    from an OAM monitoring/sink account matches every linked source
+    account's resources too, not just the account the dashboard lives in;
+    `metrics_list` doesn't have this problem, since it only ever queries the
+    exact dimensions given. Leave all three null and populate
+    `namespace`/`metric_name`/`dimensions`/`stat` to render a single plain
+    metric widget. Leave the whole list empty to omit metric widgets from
+    Tier 2.
   EOT
   type = list(object({
     label             = string
@@ -125,6 +132,13 @@ variable "tier2_metrics" {
       metric_name = string
       dimensions  = optional(map(string), {})
       stat        = optional(string, "Average")
+    })), [])
+    metrics_list = optional(list(object({
+      namespace   = string
+      metric_name = string
+      dimensions  = optional(map(string), {})
+      stat        = optional(string, "Average")
+      label       = string
     })), [])
   }))
   default = []
