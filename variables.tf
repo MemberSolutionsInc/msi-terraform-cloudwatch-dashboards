@@ -21,6 +21,54 @@ variable "tier1_composite_alarms" {
   default = []
 }
 
+variable "tier1_applications" {
+  description = <<-EOT
+    One entry per application/service that should get its own per-application
+    Tier 1 health dashboard (separate from, and independent of, the combined
+    grid created by tier1_composite_alarms). Each dashboard opens with a
+    severity-based status indicator - a crit_alarm and a warn_alarm rendered
+    as Alarm Status widgets - followed by every metric widget for that
+    application. There is no single "the whole dashboard is one color"
+    CloudWatch primitive, so the status indicator is the crit/warn pair: crit
+    in ALARM reads as red, only warn in ALARM reads as yellow, neither reads
+    as green.
+
+    Set warn_threshold and/or crit_threshold on a metric to draw horizontal
+    reference lines at those values.
+
+    Leave the whole list empty to skip this mode entirely.
+  EOT
+  type = list(object({
+    name = string
+    crit_alarm = optional(object({
+      name = string
+      arn  = string
+    }))
+    warn_alarm = optional(object({
+      name = string
+      arn  = string
+    }))
+    metrics = optional(list(object({
+      namespace      = optional(string)
+      metric_name    = optional(string)
+      dimensions     = optional(map(string), {})
+      stat           = optional(string, "Average")
+      label          = string
+      warn_threshold = optional(number)
+      crit_threshold = optional(number)
+      expression     = optional(string)
+      using_metrics = optional(list(object({
+        id          = string
+        namespace   = string
+        metric_name = string
+        dimensions  = optional(map(string), {})
+        stat        = optional(string, "Average")
+      })), [])
+    })), [])
+  }))
+  default = []
+}
+
 # ---------------------------------------------------------------------------
 # Tier 2 - operational triage (scoped by service/env)
 # ---------------------------------------------------------------------------
@@ -55,17 +103,22 @@ variable "tier2_metrics" {
     dashboard, e.g. error rate / latency / throughput trends.
 
     Set `expression` (with `using_metrics` supplying the underlying series) to
-    render a metric-math widget, or leave `expression` null and populate
-    `namespace`/`metric_name`/`dimensions`/`stat` to render a plain metric
-    widget. Leave the whole list empty to omit metric widgets from Tier 2.
+    render a metric-math widget, `search_expression` to render a single
+    widget covering many resources at once via CloudWatch's native SEARCH()
+    (e.g. combining one metric across every instance in a fleet into one
+    graph, one line per instance, without listing each instance by hand), or
+    leave both null and populate `namespace`/`metric_name`/`dimensions`/`stat`
+    to render a plain metric widget. Leave the whole list empty to omit
+    metric widgets from Tier 2.
   EOT
   type = list(object({
-    label       = string
-    namespace   = optional(string)
-    metric_name = optional(string)
-    dimensions  = optional(map(string), {})
-    stat        = optional(string, "Average")
-    expression  = optional(string)
+    label             = string
+    namespace         = optional(string)
+    metric_name       = optional(string)
+    dimensions        = optional(map(string), {})
+    stat              = optional(string, "Average")
+    expression        = optional(string)
+    search_expression = optional(string)
     using_metrics = optional(list(object({
       id          = string
       namespace   = string
@@ -113,6 +166,43 @@ variable "tier3_resources" {
     }))
     log_group_names = optional(list(string), [])
     has_xray        = optional(bool, false)
+  }))
+  default = []
+}
+
+variable "tier3_combined_resources" {
+  description = <<-EOT
+    Resources whose metrics should be combined onto a single account-wide
+    Tier 3 dashboard - one widget per metric per resource - instead of each
+    resource getting its own dashboard the way tier3_resources does. Widget
+    titles are "<resource_name> - <metric label>" so metrics stay
+    identifiable once many resources are combined onto one board.
+
+    Set warn_threshold and/or crit_threshold on a metric to draw horizontal
+    reference lines at those values.
+
+    This is independent of tier3_resources - use one, the other, or both.
+    Leave empty to skip the combined dashboard.
+  EOT
+  type = list(object({
+    resource_name = string
+    metrics = list(object({
+      namespace      = optional(string)
+      metric_name    = optional(string)
+      dimensions     = optional(map(string), {})
+      stat           = optional(string, "Average")
+      label          = string
+      warn_threshold = optional(number)
+      crit_threshold = optional(number)
+      expression     = optional(string)
+      using_metrics = optional(list(object({
+        id          = string
+        namespace   = string
+        metric_name = string
+        dimensions  = optional(map(string), {})
+        stat        = optional(string, "Average")
+      })), [])
+    }))
   }))
   default = []
 }
