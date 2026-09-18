@@ -134,7 +134,7 @@ locals {
         title   = m.label
         view    = "timeSeries"
         stacked = false
-        region  = "$${AWS::Region}"
+        region  = var.region
         metrics = local.tier2_metric_rows[idx]
       }
     }
@@ -180,7 +180,7 @@ locals {
           title   = m.label
           view    = "timeSeries"
           stacked = false
-          region  = "$${AWS::Region}"
+          region  = var.region
           metrics = [
             concat(
               [m.namespace, m.metric_name],
@@ -208,7 +208,7 @@ locals {
       properties = {
         title  = "Logs - ${name}"
         view   = "table"
-        region = "$${AWS::Region}"
+        region = var.region
         query = join(" | ", concat(
           [for lg in r.log_group_names : "SOURCE '${lg}'"],
           [lookup(var.tier3_log_queries, name, var.tier3_default_log_query)]
@@ -227,7 +227,7 @@ locals {
         height = 6
         properties = {
           title  = "X-Ray Trace Map - ${name}"
-          region = "$${AWS::Region}"
+          region = var.region
           type   = "service_map"
           query  = "service(\"${name}\")"
         }
@@ -333,7 +333,7 @@ locals {
             title   = m.label
             view    = "timeSeries"
             stacked = false
-            region  = "$${AWS::Region}"
+            region  = var.region
             metrics = local.tier1_app_metric_rows[name][idx]
           },
           (m.warn_threshold != null || m.crit_threshold != null) ? {
@@ -410,7 +410,7 @@ locals {
           title   = "${m.resource_name} - ${m.label}"
           view    = "timeSeries"
           stacked = false
-          region  = "$${AWS::Region}"
+          region  = var.region
           metrics = local.tier3_combined_metric_rows[idx]
         },
         (m.warn_threshold != null || m.crit_threshold != null) ? {
