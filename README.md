@@ -68,9 +68,10 @@ from Tier 3 dashboards or ad-hoc from the CloudWatch console.
 
 ```hcl
 module "dashboards" {
-  source = "git::https://github.com/MemberSolutionsInc/msi-terraform-cloudwatch-dashboards.git?ref=v0.1.0"
+  source = "git::https://github.com/MemberSolutionsInc/msi-terraform-cloudwatch-dashboards.git?ref=v0.3.0"
 
   dashboard_name_prefix = "checkout-prod"
+  region                = "us-east-1"
 
   # Tier 1 - executive health
   tier1_composite_alarms = [
@@ -236,6 +237,7 @@ Tier 3 combined mode (one account-wide dashboard instead of one per resource):
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `dashboard_name_prefix` | `string` | n/a | Prefix used to name the tier1/tier2/tier3 dashboards. |
+| `region` | `string` | n/a | AWS region every metric widget's `region` field is set to, e.g. `"us-east-1"`. Required - see Notes/caveats below. |
 | `tier1_composite_alarms` | `list(object({ name, arn, label }))` | `[]` | Composite alarms rendered as Tier 1 Alarm Status widgets on one combined dashboard. Empty skips this mode. |
 | `tier1_applications` | `list(object({ name, crit_alarm, warn_alarm, metrics }))` | `[]` | One entry per application/service, each getting its own Tier 1 dashboard with a severity-based status indicator plus that application's metric (or metric-math) widgets. Independent of `tier1_composite_alarms`. Empty skips this mode. |
 | `tier2_service_values` | `list(string)` | `[]` | Dropdown values for the Tier 2 `$service` dashboard variable. |
@@ -268,9 +270,16 @@ Tier 3 combined mode (one account-wide dashboard instead of one per resource):
 
 ## Notes / caveats
 
-- `region` fields in generated widgets use the CloudWatch dashboard macro
-  `${AWS::Region}` so dashboards render correctly regardless of which region
-  they're deployed into.
+- Every metric widget's `region` field is set to `var.region` (a real region
+  string, e.g. `"us-east-1"`), not the `${AWS::Region}` pseudo-parameter.
+  That macro is CloudFormation-only - it's expanded by CloudFormation before
+  the JSON ever reaches CloudWatch, so a dashboard created directly via the
+  API (which is what `aws_cloudwatch_dashboard` does) ends up with the
+  literal string `${AWS::Region}` as its region, an unresolvable value that
+  makes every widget render as a blank graph with no data. Confirmed live
+  via `aws cloudwatch get-metric-widget-image`: the macro string produces an
+  empty graph with a warning icon, while a real region string renders
+  correctly. (v0.1.0/v0.2.x shipped with the macro - fixed in v0.3.0.)
 - The Tier 3 X-Ray widget uses `"type": "xray"` with a `service_map` query
   scoped to the resource name. Verify the rendered widget in the console
   after first apply, since AWS's dashboard JSON schema for X-Ray widgets is

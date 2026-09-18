@@ -3,6 +3,22 @@ variable "dashboard_name_prefix" {
   type        = string
 }
 
+variable "region" {
+  description = <<-EOT
+    AWS region every metric widget's "region" field is set to, e.g.
+    "us-east-1". Required - CloudWatch dashboards created directly via the
+    API (which is what Terraform's aws_cloudwatch_dashboard resource does)
+    do NOT expand the "$${AWS::Region}" pseudo-parameter the way
+    CloudFormation does; a dashboard created outside CloudFormation with
+    that literal string in its "region" field renders every widget as a
+    blank graph with no data (confirmed live via
+    `aws cloudwatch get-metric-widget-image`) - CloudWatch treats it as an
+    unresolvable region rather than the current one. Pass an actual region
+    string here instead.
+  EOT
+  type        = string
+}
+
 # ---------------------------------------------------------------------------
 # Tier 1 - executive health (composite alarm status grid, no graphs)
 # ---------------------------------------------------------------------------
